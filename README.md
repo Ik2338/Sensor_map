@@ -1,16 +1,17 @@
-# 🗺️ SensorMap — Dashboard de Capteurs avec Docker & MongoDB
+# 🗺️ SensorMap — Dashboard de Capteurs IoT
 
-Application full-stack pour importer et visualiser des capteurs IoT sur une carte interactive.
+Application full-stack pour visualiser des capteurs GPS sur une carte interactive, avec stockage MongoDB et interface d'administration.
 
 ## Stack Technique
 
-| Couche     | Technologie              |
-|------------|--------------------------|
-| Frontend   | React + Vite + Leaflet   |
-| Backend    | Node.js + Express        |
-| Base de données | MongoDB (via Docker) |
-| Proxy      | Nginx                    |
-| Conteneurs | Docker + Docker Compose  |
+| Couche          | Technologie                  |
+|-----------------|------------------------------|
+| Frontend        | React + Vite + Leaflet       |
+| Backend         | Node.js + Express            |
+| Base de données | MongoDB 7                    |
+| Admin DB        | Mongo Express                |
+| Proxy           | Nginx                        |
+| Conteneurs      | Docker + Docker Compose      |
 
 ---
 
@@ -23,8 +24,7 @@ Application full-stack pour importer et visualiser des capteurs IoT sur une cart
 ### Lancement
 
 ```bash
-# Cloner le projet et entrer dans le dossier
-cd sensor-map
+
 
 # Lancer tous les services
 docker-compose up --build
@@ -33,75 +33,85 @@ docker-compose up --build
 docker-compose up --build -d
 ```
 
-### Accès
-| Service   | URL                        |
-|-----------|----------------------------|
-| Frontend  | http://localhost:3000       |
-| Backend   | http://localhost:5000       |
-| MongoDB   | mongodb://localhost:27017   |
+---
+
+## 🌐 Accès aux Services
+
+| Service            | URL                        | Credentials         |
+|--------------------|----------------------------|---------------------|
+| 🗺 Frontend React  | http://localhost:3000       | —                   |
+| ⚙️ Backend API     | http://localhost:5000       | —                   |
+| 🍃 Mongo Express   | http://localhost:8081       | admin / admin123    |
+| 🗄 MongoDB         | mongodb://localhost:27017   | admin / sensorpass  |
 
 ---
 
-## 📂 Format du Dataset
+## 🍃 Mongo Express
 
-L'application accepte **CSV**, **XLSX** et **JSON**.
+Mongo Express est une interface web pour visualiser et gérer le contenu de MongoDB directement depuis le navigateur.
 
-### Colonnes requises
-| Colonne             | Description        |
-|---------------------|--------------------|
-| `latitude` / `lat`  | Latitude du capteur |
-| `longitude` / `lon` | Longitude du capteur |
+**Accès :** http://localhost:8081  
+**Login :** `admin`  
+**Mot de passe :** `admin123`
 
-### Colonnes optionnelles
-| Colonne       | Description                          | Valeur par défaut |
-|---------------|--------------------------------------|-------------------|
-| `name`        | Nom du capteur                       | `Sensor N`        |
-| `type`        | Type (temperature, humidity, etc.)   | `generic`         |
-| `status`      | `active`, `inactive`, `warning`, `error` | `active`      |
-| `value`       | Valeur mesurée                       | —                 |
-| `unit`        | Unité (°C, %, AQI...)                | —                 |
-| `description` | Description libre                    | —                 |
+Depuis cette interface vous pouvez :
+- Parcourir la base `sensordb` et la collection `sensors`
+- Voir, éditer et supprimer des documents
+- Exécuter des requêtes
+- Visualiser les index géospatiaux
 
-### Exemple CSV
-```csv
-name,latitude,longitude,type,status,value,unit
-Capteur_01,33.5731,-7.5898,temperature,active,24.5,°C
-Capteur_02,34.0209,-6.8416,humidity,warning,65.2,%
-```
+---
 
-### Exemple JSON
-```json
-[
-  {
-    "name": "Capteur_01",
-    "latitude": 33.5731,
-    "longitude": -7.5898,
-    "type": "temperature",
-    "status": "active",
-    "value": 24.5,
-    "unit": "°C"
-  }
-]
-```
+## 📡 Dataset Fixe
+
+Les capteurs sont pré-chargés automatiquement dans MongoDB au démarrage :
+
+| Sensor ID | Latitude   | Longitude    |
+|-----------|------------|--------------|
+| 400001    | 37.364085  | -121.901149  |
+| 400017    | 37.253303  | -121.945440  |
+| 400030    | 37.359087  | -121.906538  |
+| 400040    | 37.294949  | -121.873109  |
+| 400045    | 37.363402  | -121.902233  |
+
+> Zone : **San Jose, Californie, USA**
+
+---
+
+## 🖥️ Fonctionnalités Frontend
+
+### Onglet 🗺 Carte
+- Carte sombre interactive (CartoDB Dark)
+- Marqueurs verts avec popup au clic (ID, coordonnées, date)
+- Zoom automatique sur le capteur sélectionné
+- Liste des capteurs dans la sidebar avec recherche par ID
+
+### Onglet 🍃 MongoDB
+- Tableau de tous les documents de la collection
+- Affichage : `_id`, `sensorId`, `latitude`, `longitude`, `createdAt`, `updatedAt`
+- Clic sur une ligne → JSON complet du document
+- Pagination
+- Bouton **Reseed** : recharge le dataset fixe
+- Bouton **Vider** : supprime toute la collection
 
 ---
 
 ## 🔌 API Backend
 
-| Méthode | Route              | Description                  |
-|---------|--------------------|------------------------------|
-| GET     | `/api/sensors`     | Récupère tous les capteurs   |
-| GET     | `/api/sensors/stats` | Statistiques globales      |
-| GET     | `/api/sensors/types` | Liste des types de capteurs |
-| POST    | `/api/upload`      | Importe un fichier dataset   |
-| DELETE  | `/api/sensors`     | Supprime tous les capteurs   |
-| GET     | `/health`          | Health check                 |
+| Méthode | Route                   | Description                        |
+|---------|-------------------------|------------------------------------|
+| GET     | `/api/sensors`          | Liste tous les capteurs (paginé)   |
+| GET     | `/api/sensors/stats`    | Total et dernier document inséré   |
+| GET     | `/api/sensors/:id`      | Un capteur par sensorId            |
+| POST    | `/api/sensors/reseed`   | Recharge le dataset fixe           |
+| DELETE  | `/api/sensors`          | Supprime tous les capteurs         |
+| GET     | `/health`               | Health check                       |
 
-### Paramètres de filtre (GET /api/sensors)
-```
-?type=temperature
-?status=active
-?limit=500
+### Exemple
+```bash
+curl http://localhost:5000/api/sensors
+curl http://localhost:5000/api/sensors/stats
+curl -X POST http://localhost:5000/api/sensors/reseed
 ```
 
 ---
@@ -118,9 +128,11 @@ docker-compose down -v
 
 ---
 
-## 🔧 Développement local (sans Docker)
+## 🔧 Développement Local (sans Docker)
 
 ```bash
+# MongoDB doit tourner localement sur le port 27017
+
 # Backend
 cd backend
 npm install
@@ -130,4 +142,35 @@ MONGODB_URI=mongodb://admin:sensorpass@localhost:27017/sensordb?authSource=admin
 cd frontend
 npm install
 npm run dev
+# → http://localhost:5173
+```
+
+---
+
+## 📁 Structure du Projet
+
+```
+sensor-map/
+├── docker-compose.yml          ← 4 services orchestrés
+├── .gitignore
+├── README.md
+├── mongo-init/
+│   └── init.js                 ← Init MongoDB + index 2dsphere
+├── backend/
+│   ├── Dockerfile
+│   ├── package.json
+│   └── src/
+│       └── index.js            ← API Express + seed automatique
+└── frontend/
+    ├── Dockerfile              ← Build Vite + Nginx
+    ├── nginx.conf
+    ├── vite.config.js
+    └── src/
+        ├── App.jsx             ← Layout + onglets Carte/MongoDB
+        ├── services/api.js     ← Appels REST
+        └── components/
+            ├── SensorMap.jsx   ← Carte Leaflet
+            ├── Sidebar.jsx     ← Liste + recherche
+            ├── MongoViewer.jsx ← Tableau MongoDB + JSON viewer
+            └── StatsBar.jsx    ← Compteurs en-tête
 ```
